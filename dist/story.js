@@ -1,19 +1,34 @@
 const bill = document.querySelector('#bill');
-bill.addEventListener('input', () => {
-  const diff = Number(bill.value) - 1000;
-  document.querySelector('#amount').textContent = '$' + Number(bill.value).toLocaleString('en-US');
-  document.querySelector('#delta').textContent = diff === 0 ? 'Invoice matches the contract' : '$' + Math.abs(diff) + (diff < 0 ? ' underbilled' : ' overbilled');
-});
-const cases = {
-  added:['Main St, Oak Ave, King St','Review addition · King St'],
-  closed:['Main St','Review removal · Oak Ave'],
-  same:['Oak Ave, Main St','Locations match · skip extraction']
+const less = document.querySelector('#less');
+const more = document.querySelector('#more');
+function updateInvoice() {
+  const amount = Number(bill.value);
+  const difference = amount - 1000;
+  document.querySelector('#amount').textContent = '$' + amount.toLocaleString('en-US');
+  const result = document.querySelector('#delta');
+  result.textContent = difference === 0 ? 'Invoice matches the contract' : '$' + Math.abs(difference) + (difference < 0 ? ' underbilled' : ' overbilled');
+  result.dataset.match = String(difference === 0);
+  bill.style.setProperty('--fill', (amount - 500) / 10 + '%');
+  less.disabled = amount <= 500;
+  more.disabled = amount >= 1500;
+}
+bill.addEventListener('input', updateInvoice);
+less.addEventListener('click', () => { bill.stepDown(); updateInvoice(); });
+more.addEventListener('click', () => { bill.stepUp(); updateInvoice(); });
+updateInvoice();
+const examples = {
+  added: ['Main St<br>Oak Ave<br><mark>+ King St</mark>', 'Review addition · King St'],
+  closed: ['Main St<br><del>− Oak Ave</del>', 'Review removal · Oak Ave'],
+  same: ['Oak Ave<br>Main St', 'Same locations · skip extraction']
 };
-const sample = document.querySelector('#sample');
-sample.addEventListener('change', () => {
-  const [list, decision] = cases[sample.value];
-  document.querySelector('#thisweek').textContent = list;
-  document.querySelector('#decision').textContent = decision;
+document.querySelectorAll('input[name="scenario"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const [locations, verdict] = examples[radio.value];
+    document.querySelector('#thisweek').innerHTML = locations;
+    const decision = document.querySelector('#decision');
+    decision.textContent = verdict;
+    decision.dataset.match = String(radio.value === 'same');
+  });
 });
 
 const palette = [
@@ -120,45 +135,22 @@ explore.addEventListener('click',()=>{
 });
 onScroll();
 
-// Project a twisted ribbon into the hero canvas. Depth sorting lets its folds pass behind one another.
-const canvas=document.querySelector('#sculpture'),ctx=canvas.getContext('2d');
-const motion=document.querySelector('#motion');
-let time=.7, offset=0, target=0, inView=true, handle=0, last=0;
-function project(t,u,rotation){
- const twist=t*1.5+.28*Math.sin(t*3);
- const rad=1.04+.35*Math.cos(3*t)+u*.36*Math.cos(twist);
- const x=rad*Math.cos(t), y=rad*Math.sin(t), z=.48*Math.sin(t*3)+u*.36*Math.sin(twist);
- const xx=x*Math.cos(rotation)+z*Math.sin(rotation),zz=-x*Math.sin(rotation)+z*Math.cos(rotation);
- const yy=y*.80-zz*.60,depth=y*.60+zz*.80;
- return [xx/(3.9-depth),yy/(3.9-depth),depth];
+
+const film = document.querySelector('#harbour');
+const motion = document.querySelector('#motion');
+let heroVisible = true;
+function syncMotion() {
+  document.body.classList.toggle('paused', paused);
+  motion.textContent = paused ? 'Play motion' : 'Pause motion';
+  motion.setAttribute('aria-pressed', String(paused));
+  if (paused || document.hidden || !heroVisible) film.pause();
+  else film.play().catch(() => {});
 }
-function paint(){
- const w=canvas.clientWidth,h=canvas.clientHeight;if(!w||!h||!ctx)return;
- const dpr=Math.min(devicePixelRatio||1,1.75);
- if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
- ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
- const scale=Math.min(w*1.03,h*1.02),angle=.28+time*.15+offset*.6,pan=.12*Math.sin(time*.13);
- const screen=p=>[(w*.49)+scale*(p[0]*Math.cos(pan)-p[1]*Math.sin(pan)),h*.49+scale*(p[0]*Math.sin(pan)+p[1]*Math.cos(pan))];
- const panels=[];
- for(let i=0;i<196;i++){
-  const t=i*Math.PI*2/196,dt=2*Math.PI/196;
-  const p=[project(t,-1,angle),project(t+dt,-1,angle),project(t+dt,1,angle),project(t,1,angle)];
-  const edge=(p[1][0]-p[0][0])*(p[3][1]-p[0][1])-(p[1][1]-p[0][1])*(p[3][0]-p[0][0]);
-  const light=Math.min(1,Math.abs(edge)*1900),shade=(i%3===0?.72:1);
-  const rgb=edge>0?[155+94*light,57+106*light,22+66*light]:[75+104*light,38+49*light,28+22*light];
-  panels.push({z:p.reduce((n,v)=>n+v[2],0)/4,pts:p.map(screen),color:'rgb('+rgb.map(v=>Math.round(v*shade)).join(',')+')'});
- }
- panels.sort((a,b)=>a.z-b.z);
- for(const panel of panels){
-  ctx.beginPath();panel.pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=panel.color;ctx.fill();ctx.strokeStyle=panel.color;ctx.lineWidth=.6;ctx.stroke();
- }
-}
-function animate(now){handle=0;if(!inView||document.hidden||paused)return;time+=Math.min((now-last)/1000,.05);last=now;offset+=(target-offset)*.07;paint();handle=requestAnimationFrame(animate);}
-function restart(){cancelAnimationFrame(handle);last=performance.now();paint();if(!paused&&inView&&!document.hidden)handle=requestAnimationFrame(animate);}
-function syncMotion(){document.body.classList.toggle('paused',paused);motion.textContent=paused?'Play motion':'Pause motion';motion.setAttribute('aria-pressed',String(paused));restart();}
-motion.addEventListener('click',()=>{paused=!paused;syncMotion();});
-reduced.addEventListener('change',()=>{paused=reduced.matches;syncMotion();});
-canvas.addEventListener('pointermove',e=>{const b=canvas.getBoundingClientRect();target=(e.clientX-b.left)/b.width*2-1;});
-canvas.addEventListener('pointerleave',()=>target=0);
-new IntersectionObserver(([entry])=>{inView=entry.isIntersecting;restart();}).observe(canvas);
-new ResizeObserver(restart).observe(canvas);document.addEventListener('visibilitychange',restart);syncMotion();
+motion.addEventListener('click', () => { paused = !paused; syncMotion(); });
+reduced.addEventListener('change', () => { paused = reduced.matches; syncMotion(); });
+new IntersectionObserver(([entry]) => {
+  heroVisible = entry.isIntersecting;
+  syncMotion();
+}).observe(film);
+document.addEventListener('visibilitychange', syncMotion);
+syncMotion();
