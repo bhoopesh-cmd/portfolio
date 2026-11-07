@@ -137,16 +137,12 @@ onScroll();
 
 
 const film = document.querySelector('#harbour');
-const motion = document.querySelector('#motion');
 let heroVisible = true;
 function syncMotion() {
   document.body.classList.toggle('paused', paused);
-  motion.textContent = paused ? 'Play motion' : 'Pause motion';
-  motion.setAttribute('aria-pressed', String(paused));
   if (paused || document.hidden || !heroVisible) film.pause();
   else film.play().catch(() => {});
 }
-motion.addEventListener('click', () => { paused = !paused; syncMotion(); });
 reduced.addEventListener('change', () => { paused = reduced.matches; syncMotion(); });
 new IntersectionObserver(([entry]) => {
   heroVisible = entry.isIntersecting;
